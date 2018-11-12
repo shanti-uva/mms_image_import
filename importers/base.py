@@ -35,7 +35,6 @@ class Importer(object):
 
     def _already_imported(self):
         url = self.exists_url + str(self.id)
-        print("Self exists url is: {}".format(url))
         res = requests.get(url, verify=False)
         if res.status_code == requests.codes.ok:
             try:
@@ -71,7 +70,7 @@ if __name__ == '__main__':
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
     imptr = Importer(
         id=10001,
-        cookie='SSESS36f1ec5e317e53e9ac5cbb2d1be94812:W8xbfgOj3Rns9ZoqIiLbB-B4ZSEgM-ahpe2zMjYVxiI',
+        cookie='cookie info',
         exists_url='https://images.dd:8443/api/imginfo/mmsid/',
         out_path='../out',
         photographer='',
