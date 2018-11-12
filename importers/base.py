@@ -5,7 +5,6 @@ import json
 class Importer(object):
 
     def __init__(self, id, cookie, out_path, photographer, collection, *args, **kwargs):
-        print ("id in base init {}".format(id))
         self.id = id
         self.cookie = cookie
         self.out_path = out_path
@@ -36,13 +35,14 @@ class Importer(object):
 
     def _already_imported(self):
         url = self.exists_url + str(self.id)
-        print ("Self exists url is: {}".format(url))
+        print("Self exists url is: {}".format(url))
         res = requests.get(url, verify=False)
         if res.status_code == requests.codes.ok:
             try:
                 res_json = res.json()
             except json.decoder.JSONDecodeError as e:
-                self._log('warning', 'Item {} skipped because of non-json response body from GET. Response: {}'.format(self.id, res.text))
+                self._log('warning', 'Item {} skipped because of non-json response body from GET. ' +
+                          'Response: {}'.format(self.id, res.text))
                 return True
             if res_json['nid']:
                 self._log('info', 'Item ID {} skipped because it has already been imported.'.format(self.id))
@@ -50,7 +50,7 @@ class Importer(object):
 
         return False
 
-    def _import_metadata(self, filepath):
+    def _import_metadata(self):
         pass
 
     def _transfer_image(self):
@@ -65,10 +65,14 @@ class Importer(object):
 
 
 if __name__ == '__main__':
+
+    # Disable the warning about not checking the https certificate
+    from requests.packages.urllib3.exceptions import InsecureRequestWarning
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
     imptr = Importer(
         id=10001,
         cookie='SSESS36f1ec5e317e53e9ac5cbb2d1be94812:W8xbfgOj3Rns9ZoqIiLbB-B4ZSEgM-ahpe2zMjYVxiI',
-        exists_url='https://images-stage.dd:8443/api/imginfo/mmsid/',
+        exists_url='https://images.dd:8443/api/imginfo/mmsid/',
         out_path='../out',
         photographer='',
         collection='',

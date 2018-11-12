@@ -15,13 +15,15 @@ parser.add_argument('-c', '--cookie', required=True,
                     help='The Cookie header to pass to the Drupal server.')
 parser.add_argument('-hm', '--home', required=True,
                     help='The host domain name')
-parser.add_argument('-d', '--dest', choices=['test', 'prod'],
+parser.add_argument('-d', '--dest', choices=['test', 'prod'], default='test',
                     help='The IIIF host defaults to "test"')
+parser.add_argument('-src', '--source', choices=['dev', 'prod'], default='dev',
+                    help='The MMS source for metadata')
 parser.add_argument('-rs', '--rsync', choices=['true', 'false'],
                     help='Whether or not to rsync the image file automatically or produce a bash script to do so')
 parser.add_argument('-o', '--out_path',
                     help='Path for the output file if sync is false')
-parser.add_argument('-p', '--photographer',
+parser.add_argument('-p', '--photographer', default='Unknown',
                     help='Default photographer to assign the image record')
 parser.add_argument('-coll', '--collection',
                     help='ID of collection to which the record should be assigned')
@@ -32,6 +34,10 @@ parser.add_argument('-v', '--verbose', default=False, action='store_true',
 args = parser.parse_args();
 
 if __name__ == '__main__':
+
+    # Test image IDs that exist: 67074, 44300-44400, 55000-60000
+    # Not found or not images: 19165, 31229, 1795 (av), 645, 67074 (article)
+
     if args.type == 'MMS':
         importer = mms.MMSImporter(
             id=args.id,
@@ -41,6 +47,7 @@ if __name__ == '__main__':
             photographer=args.photographer,
             collection=args.collection,
             dest=args.dest,
+            source=args.source,
             home=args.home,
             logfile=args.logfile,
             verbose=args.verbose
