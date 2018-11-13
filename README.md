@@ -26,8 +26,10 @@ on the IIIF server for Mandala are "/test/" and "/prod/".
 ## Running 
 - Run:
 ```
-python import.py -t MMS -c {COOKIE} -hm {Full Destination Domain} -i {the ID of the MMS image to import}
+python import.py -c {COOKIE} -hm {Full Destination Domain} -i {the ID of the MMS image to import}
 ```
+The "cookie" option can be skipped if a file "cookie.txt" with the cookie (nm=val) as the only line is included 
+in the same folder as the import.py script.
 
 The "Full Destination Domain" is the domain of the Drupal site into which the metadata is being imported, such as 
 "https://images.mandala.virginia.edu"
