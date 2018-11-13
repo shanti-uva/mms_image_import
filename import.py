@@ -14,7 +14,7 @@ parser.add_argument('-i', '--id', required=True,
                     help='The id number of the record to import')
 parser.add_argument('-c', '--cookie',
                     help='The Cookie header to pass to the Drupal server.')
-parser.add_argument('-hm', '--home', default='https://images.dd:8443',
+parser.add_argument('-hm', '--home', default='https://images-dev.shanti.virginia.edu',
                     help='The host domain name')
 parser.add_argument('-d', '--dest', choices=['test', 'prod'], default='test',
                     help='The IIIF host defaults to "test"')
