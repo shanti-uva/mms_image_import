@@ -78,11 +78,11 @@ class MMSImporter(Importer):
 
     def _get_rsync(self):
         i3fid = self.res['i3fid']
-        mmsid = str(self.res['mmsid'])
+        mmsid = str(self.res['mmsid']).zfill(5)
         mmspath = mmsid[0:1].zfill(4) + '/' + mmsid[1:].zfill(4)
         srcimg = self.IIIF_LOC + 'prod/' + mmspath + '.jp2'
         destimg = self.IIIF_LOC + self.dest + '/' + i3fid + '.jp2'
-        cmd = 'rsync -ah --progress {} {}'.format(srcimg, destimg)
+        cmd = "rsync -ah --progress {} {}\n".format(srcimg, destimg)
         return cmd
 
     def _exec_cmds(self, cmd, verbose=False):
@@ -112,15 +112,19 @@ class MMSImporter(Importer):
         id_list = self.id_list if self.id_list else [int(self.id)]
         rsync_cmds = []
         be_verbose = True
+        impct = 0
+        skipct = 0
         # If a list of IDs are given
         for id in id_list:
             self.id = str(id)
             if self._already_imported():
                 print("Id {} is already imported.".format(self.id))
+                skipct += 1
             else:
                 print("Importing metadata for {} into {}".format(self.id, self.base))
                 self._import_metadata()
                 rsync_cmds.append(self._get_rsync())
+                impct += 1
 
         for rscmd in rsync_cmds:
             self._exec_cmds(rscmd, be_verbose)
@@ -129,5 +133,8 @@ class MMSImporter(Importer):
             self._distribute(be_verbose)
 
         endtm = time.time()
-        delta = endtm - sttm
-        print("took %.2f seconds to process" % delta)
+        timedelta = endtm - sttm
+        print("{} file imported. {} files skipped".format(impct, skipct))
+        m, s = divmod(timedelta, 60)
+        h, m = divmod(m, 60)
+        print("Time elapsed: %d hrs %02d mins %02d secs" % (h, m, s))

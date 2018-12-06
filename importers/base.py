@@ -57,6 +57,7 @@ class Importer(object):
 
     def _already_imported(self):
         url = self.exists_url + str(self.id)
+        print("Url being called: {}".format(url))
         res = requests.get(url, verify=False)
         if res.status_code == requests.codes.ok:
             try:
