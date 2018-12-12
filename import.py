@@ -47,6 +47,7 @@ if __name__ == '__main__':
     else:
         with open('cookie.txt', 'r') as cookiefile:
             cookie = cookiefile.read()
+            cookie = cookie.strip()
 
         if not cookie or cookie == '':
             print("No authentication cookie given. Cannot proceed with import.")
@@ -58,7 +59,7 @@ if __name__ == '__main__':
         else:
             fct = 1
             while os.path.exists(args.out_path):
-                resp = input("The rsync file {} already exists. Do you want to write over it (y/n/q)? ".format(args.out_path))
+                resp = raw_input("The rsync file {} already exists. Do you want to write over it (y/n/q)? ".format(args.out_path))
                 if resp == 'y':
                     os.remove(args.out_path)
                 elif resp == 'n':

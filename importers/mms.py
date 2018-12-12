@@ -13,7 +13,7 @@ class MMSImporter(Importer):
     IIIF_LOC='~/Shares/iiif-live/shanti/'
 
     def __init__(self, id, cookie, out_path=None, photographer='Unknown', collection=None, *args, **kwargs):
-        super().__init__(
+        super(MMSImporter, self).__init__(
             id=id,
             cookie=cookie,
             out_path=out_path,
@@ -31,7 +31,7 @@ class MMSImporter(Importer):
         headers = {
             'Cookie': self.cookie
         }
-
+        print "headers: {}".format(headers)
         postdata = {
             'mmsid': self.id,
             'source': self.source,
@@ -78,6 +78,10 @@ class MMSImporter(Importer):
 
     def _get_rsync(self):
         if not hasattr(self, 'res'):
+            return
+        if 'i3fid' not in self.res:
+            print "i3fid not found"
+	    print self.res
             return
         i3fid = self.res['i3fid']
         mmsid = str(self.res['mmsid']).zfill(5)
