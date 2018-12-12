@@ -45,9 +45,9 @@ def distribute(self, mydest='test', verbose=False):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Recover MMS rsync commands for a Mandala Images site')
-    parser.add_argument('-dm', '--domain', default='images-stage.shanti.virginia.edu',
+    parser.add_argument('-dm', '--domain', default='images.shanti.virginia.edu',
                         help='What images domain')
-    parser.add_argument('-ds', '--dest', choices=['test', 'prod'], default='test',
+    parser.add_argument('-ds', '--dest', choices=['test', 'prod'], default='prod',
                         help='Destination or the IIIF Server to which to copy the mms image')
     parser.add_argument('-i', '--ids', required=True,
                         help='The range of IDs or single ID to create the commands for')
@@ -67,7 +67,10 @@ if __name__ == '__main__':
         mmsend = int(mmsids[1]) + 1
     auto = args.auto
     ts = int(time.time())
-    domabbr = args.domain.replace('shanti.virginia.edu', '').replace('.', '-')
+    rpst = ''
+    if 'test' not in args.domain and 'dev' not in args.domain:
+        rpst = 'prod'
+    domabbr = args.domain.replace('shanti.virginia.edu', rpst).replace('.', '-')
     outurl = '{}/mms-rsync-{}-{}-{}-{}.sh'.format(
         args.outdir,
         domabbr,
@@ -81,7 +84,9 @@ if __name__ == '__main__':
             print("Exiting script!")
             exit(0)
 
-    print("\nCreating commands for mms ids: {0} to {1}".format(mmsstr, mmsend))
+    print("\nCreating commands for mms ids: {0} to {1}".format(mmsstr, mmsend - 1))
+
+    badids = []
 
     for mmsid in range(mmsstr, mmsend):  # range(38049, 38536):
         print("\rDoing: {0}        ".format(mmsid),)
@@ -94,12 +99,18 @@ if __name__ == '__main__':
             with open(outurl, 'a') as outfile:
                 outfile.write(cmd)
         else:
-            print("Terminating script!")
-            exit(0)
+            print("Unable to get info for MSSID {}".format(mmsid))
+            badids.append(str(mmsid))
 
     if auto:
         distribute(dest, True)
 
-os.chmod(outurl, 0o774)
-print("Done! Commands written to: {}".format(outurl))
+if os.path.isfile(outurl):
+    os.chmod(outurl, 0o774)
+    print("Done! Commands written to: {}".format(outurl))
+else:
+    print("No commands written!")
+
+
+print("The information for the following IDs could not be accessed: {}".format(', '.join(badids)))
 

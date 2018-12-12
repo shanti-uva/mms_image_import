@@ -29,7 +29,7 @@ parser.add_argument('-p', '--photographer', default='Unknown',
                     help='Default photographer to assign the image record')
 parser.add_argument('-coll', '--collection',
                     help='ID of collection to which the record should be assigned')
-parser.add_argument('-l', '--logfile', default='logs/mmsimport-{}.log'.format(time.time()),
+parser.add_argument('-l', '--logfile',
                     help='Log progress to a file.')
 parser.add_argument('-v', '--verbose', default=False, action='store_true',
                     help='Prints progress to stdout.')
@@ -76,6 +76,9 @@ if __name__ == '__main__':
                     print("Quiting conversions")
                     exit(0)
 
+    if not args.logfile:
+        tm = int(time.time())
+        args.logfile = 'logs/mmsimport-{}-{}.log'.format(args.id, tm)
 
     if args.type == 'MMS':
         importer = mms.MMSImporter(

@@ -77,6 +77,8 @@ class MMSImporter(Importer):
         # }
 
     def _get_rsync(self):
+        if not hasattr(self, 'res'):
+            return
         i3fid = self.res['i3fid']
         mmsid = str(self.res['mmsid']).zfill(5)
         mmspath = mmsid[0:1].zfill(4) + '/' + mmsid[1:].zfill(4)
@@ -117,14 +119,17 @@ class MMSImporter(Importer):
         # If a list of IDs are given
         for id in id_list:
             self.id = str(id)
-            if self._already_imported():
-                print("Id {} is already imported.".format(self.id))
-                skipct += 1
-            else:
-                print("Importing metadata for {} into {}".format(self.id, self.base))
-                self._import_metadata()
-                rsync_cmds.append(self._get_rsync())
-                impct += 1
+            try:
+                if self._already_imported():
+                    print("Id {} is already imported.".format(self.id))
+                    skipct += 1
+                else:
+                    print("Importing metadata for {} into {}".format(self.id, self.base))
+                    self._import_metadata()
+                    rsync_cmds.append(self._get_rsync())
+                    impct += 1
+            except requests.exceptions.RequestException as e:
+                print("Unable to connect to MMS server")
 
         for rscmd in rsync_cmds:
             self._exec_cmds(rscmd, be_verbose)
