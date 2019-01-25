@@ -2,6 +2,7 @@ from .base import Importer
 import requests
 from subprocess import call
 import time
+from os.path import exists
 
 
 class MMSImporter(Importer):
@@ -51,18 +52,36 @@ class MMSImporter(Importer):
                 self.id,
                 res.status_code
             ))
+            # print("Drupal site returned non-200 status: {}".format(res.json()))
+
             if res.status_code == requests.codes.forbidden:
                 self._log('debug',
                           'Forbidden response from POST to server. Likely the cookie is expired, ' +
                           'so the script will exit.')
                 exit()
+
+            return False
+
         else:
             # If everything went OK (200)
             self.res = res.json()
-            self._log('info', '200 status returned from POST for ID {}. Payload: {}.'.format(
-                self.id,
-                res.json()
-            ))
+
+            if self.res['status'] == '200':
+                self._log('info', '200 status returned from POST for ID {}. Payload: {}.'.format(
+                    self.id,
+                    self.res
+                ))
+                return True
+            else:
+                self._log('info', 'Response from Server with Non-200 Status for ID {}: {} ({})'.format(
+                    self.id,
+                    self.res['message'],
+                    self.res['status']
+                ))
+                if self.res['status'] == '401':
+                    raise Exception('Authorization required for posting to server. Check your cookie!')
+                else:
+                    return False
 
         # res.json() looks like this:
         # {
@@ -76,25 +95,47 @@ class MMSImporter(Importer):
         #     'msg': 'success'
         # }
 
-    def _get_rsync(self):
-        if not hasattr(self, 'res'):
-            return
-        i3fid = self.res['i3fid']
-        mmsid = str(self.res['mmsid']).zfill(5)
+    def _get_rsync(self, i3fid, mmsid):
+
+        mmsid = str(mmsid).zfill(5)
         mmspath = mmsid[0:1].zfill(4) + '/' + mmsid[1:].zfill(4)
         srcimg = self.IIIF_LOC + 'prod/' + mmspath + '.jp2'
         destimg = self.IIIF_LOC + self.dest + '/' + i3fid + '.jp2'
         cmd = "rsync -ah --progress {} {}\n".format(srcimg, destimg)
         return cmd
 
+    @staticmethod
+    def build_rsync(mid):
+        info_url = 'https://images.shanti.virginia.edu/api/imginfo/mmsid/'
+        mydest = 'prod'
+        strmid = str(mid)
+        url = info_url + strmid
+        # print("Calling: {}".format(url))
+        try:
+            indoc = requests.get(url, verify=False)
+            if indoc and indoc.json():
+                jdata = indoc.json()
+                newimgnm = jdata.get('i3fid')
+                folder = strmid[0:1].zfill(4)
+                imgnm = strmid[1:].zfill(4)
+                mysource = "~/Shares/iiif-live/shanti/prod/{}/{}.jp2".format(folder, imgnm)
+                mydest = "~/Shares/iiif-live/shanti/{}/{}.jp2".format(mydest, newimgnm)
+                mycmd = "rsync -ah --progress {} {}\n".format(mysource, mydest)
+                return mycmd
+        except requests.exceptions.RequestException as e:
+            print("Connection could not be made for {}".format(url))
+            return False
+
     def _exec_cmds(self, cmd, verbose=False):
         if self.rsync == 'auto':
             if verbose:
                 print("Executing Cmd: \n{}".format(cmd))
             call(cmd, shell=True)
-        else:
+        elif cmd is not None:
             with open(self.out_path, 'a') as outf:
                 outf.write(cmd)
+        else:
+            print("No command created for rsyncing!")
 
     def _distribute(self, verbose=False):
         url = 'http://fuploadtest.lib.virginia.edu:8091/fupload/distribute'
@@ -116,6 +157,7 @@ class MMSImporter(Importer):
         be_verbose = True
         impct = 0
         skipct = 0
+        probs = []
         # If a list of IDs are given
         for id in id_list:
             self.id = str(id)
@@ -125,21 +167,49 @@ class MMSImporter(Importer):
                     skipct += 1
                 else:
                     print("Importing metadata for {} into {}".format(self.id, self.base))
-                    self._import_metadata()
-                    rsync_cmds.append(self._get_rsync())
-                    impct += 1
+                    success = self._import_metadata()
+                    # rsync_cmds.append(self._get_rsync())
+                    if success:
+                        # data = self.res
+                        # cmd = self._get_rsync(data['i3fid'], data['mmsid'])
+                        # self._exec_cmds(cmd, be_verbose)
+                        impct += 1
+                    else:
+                        probs.append(str(id))
+
             except requests.exceptions.RequestException as e:
-                print("Unable to connect to MMS server")
+                print("Unable to connect to MMS server for {}: {}".format(self.id, e))
+                probs.append(str(id))
 
-        for rscmd in rsync_cmds:
-            self._exec_cmds(rscmd, be_verbose)
+           # except Exception as e:
+           #      print("***********  Exception: {} ***********".format(e))
+           #      exit()
 
-        if self.rsync == 'auto':
-            self._distribute(be_verbose)
+        # for rscmd in rsync_cmds:
+        #    self._exec_cmds(rscmd, be_verbose)
+
+        # if self.rsync == 'auto':
+        #     self._distribute(be_verbose)
 
         endtm = time.time()
         timedelta = endtm - sttm
-        print("{} file imported. {} files skipped".format(impct, skipct))
+        print("{} file imported.".format(impct))
+        print("{} were skipped because already imported.".format(skipct))
+        print("{} imports had problems. Check log for details.".format(len(probs)))
+        print("There were problems with the following MMSIDs: {}".format(', '. join(probs)))
         m, s = divmod(timedelta, 60)
         h, m = divmod(m, 60)
         print("Time elapsed: %d hrs %02d mins %02d secs" % (h, m, s))
+
+        print("Creating Rsync commands ....")
+        if exists(self.out_path):
+            answer = input("The outfile {} already exists. Write over it? ".format(self.out_path))
+            if answer != 'y':
+                return
+
+        with open(self.out_path, 'w') as outf:
+            for mid in id_list:
+                outf.write("{}".format(self.build_rsync(mid)))
+
+
+

@@ -9,6 +9,7 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 # Disable the warning about not checking the https certificate
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+
 def build_rsync(info_url, mid, mydest):
     mycmd = False
     strmid = str(mid)
@@ -44,7 +45,8 @@ def distribute(self, mydest='test', verbose=False):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Recover MMS rsync commands for a Mandala Images site')
+    parser = argparse.ArgumentParser(description='Recover MMS rsync commands for a Mandala Images site',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-dm', '--domain', default='images.shanti.virginia.edu',
                         help='What images domain')
     parser.add_argument('-ds', '--dest', choices=['test', 'prod'], default='prod',
@@ -75,7 +77,7 @@ if __name__ == '__main__':
         args.outdir,
         domabbr,
         mmsstr,
-        mmsend,
+        (mmsend - 1),
         ts)
 
     if os.path.exists(outurl):
@@ -89,7 +91,7 @@ if __name__ == '__main__':
     badids = []
 
     for mmsid in range(mmsstr, mmsend):  # range(38049, 38536):
-        print("\rDoing: {0}        ".format(mmsid),)
+        # print("\rDoing: {0}        ".format(mmsid),)
         cmd = build_rsync(api_url, mmsid, dest)
 
         if auto:
@@ -111,6 +113,6 @@ if os.path.isfile(outurl):
 else:
     print("No commands written!")
 
-
-print("The information for the following IDs could not be accessed: {}".format(', '.join(badids)))
+if len(badids) > 0:
+    print("The information for the following IDs could not be accessed: {}".format(', '.join(badids)))
 

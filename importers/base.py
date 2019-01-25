@@ -1,6 +1,7 @@
 import logging
 import requests
 import json
+import http
 
 class Importer(object):
 
@@ -16,7 +17,7 @@ class Importer(object):
                     rpts = rng.split('-')
                     idlist = idlist + list(range(int(rpts[0]), int(rpts[1]) + 1))
                 else:
-                    idlist.append(rng)
+                    idlist.append(int(rng))
             idlist.sort()
             self.id_list = idlist
         else:
@@ -37,13 +38,24 @@ class Importer(object):
             self.exists_url = self.base + self.exists_url
         if self.exists_url[-1] != '/':
             self.exists_url += '/'
-        self.logfile = kwargs.get('logfile')
-        if self.logfile:
-            logging.basicConfig(filename=self.logfile, level=logging.INFO)
+
+        self.logoff = kwargs.get('logoff')
+        if self.logoff and (self.logoff != 'false' or self.logoff != '0' or self.logoff != '-1'):
+            self.logoff = True
+        else:
+            self.logoff = False
+
+        if not self.logoff:
+            self.logfile = kwargs.get('logfile')
+            if self.logfile:
+                logging.basicConfig(filename=self.logfile, level=logging.INFO)
         self.verbose = kwargs.get('verbose', False)
         self.convert = kwargs.get('convert', True)
 
     def _log(self, level, msg):
+        if self.logoff:
+            return
+
         if self.verbose:
             print(msg)
 
@@ -57,18 +69,33 @@ class Importer(object):
 
     def _already_imported(self):
         url = self.exists_url + str(self.id)
-        # print("Url being called: {}".format(url))
-        res = requests.get(url, verify=False)
-        if res.status_code == requests.codes.ok:
-            try:
-                res_json = res.json()
-            except json.decoder.JSONDecodeError as e:
-                self._log('warning', 'Item {} skipped because of non-json response body from GET. ' +
-                          'Response: {}'.format(self.id, res.text))
-                return True
-            if res_json['nid']:
-                self._log('info', 'Item ID {} skipped because it has already been imported.'.format(self.id))
-                return True
+        self._log('info', "Url in _already_imported (base.py): {}".format(url))
+        try:
+            res = requests.get(url, verify=False)
+            if res.status_code == requests.codes.ok:
+                try:
+                    res_json = res.json()
+
+                except json.decoder.JSONDecodeError as e:
+                    self._log('warning', 'Item {} skipped in _already_imported because of non-json response body from GET. ' +
+                              'Response: {}'.format(self.id, res.text))
+                    return True
+
+                if 'nid' in res_json.keys():
+                    self._log('info', 'Item ID {} skipped because it has already been imported.'.format(self.id))
+                    return True
+                else:
+                    self._log('warning', "JSON response in _already_imported has no nid: {}".format(res_json))
+                    return False
+
+        except requests.exceptions.RequestException as e:
+            print("Could not find out if already imported!")
+            if e:
+                print(str(e))
+        # except http.HTTPException as htpe:
+        #     print("Http Exception")
+        #     if htpe:
+        #         print(str(htpe))
 
         return False
 

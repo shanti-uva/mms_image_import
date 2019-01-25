@@ -8,7 +8,8 @@ import os
 # Disable the warning about not checking the https certificate
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-parser = argparse.ArgumentParser(description='Import images from other apps')
+parser = argparse.ArgumentParser(description='Import images from other apps',
+                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-t', '--type', choices=['MMS', 'Other'], default='MMS',
                     help='What type of image is being imported')
 parser.add_argument('-i', '--id', required=True,
@@ -18,12 +19,12 @@ parser.add_argument('-c', '--cookie',
 parser.add_argument('-hm', '--home', default='https://images.shanti.virginia.edu',
                     help='The host domain name')
 parser.add_argument('-d', '--dest', choices=['test', 'prod'], default='prod',
-                    help='The IIIF host defaults to "test"')
+                    help='The IIIF host defaults to "prod"')
 parser.add_argument('-src', '--source', choices=['dev', 'stage', 'prod'], default='prod',
                     help='The MMS source for metadata')
 parser.add_argument('-rs', '--rsync', choices=['auto', 'file'], default='file',
                     help='Whether or not to rsync the image file automatically or produce a bash script to do so')
-parser.add_argument('-o', '--out_path', default='../out/testout.sh',
+parser.add_argument('-o', '--out_path',
                     help='Path for the output file if sync is false')
 parser.add_argument('-p', '--photographer', default='Unknown',
                     help='Default photographer to assign the image record')
@@ -53,50 +54,57 @@ if __name__ == '__main__':
             exit(0)
 
     if args.rsync == 'file':
-        if not args.out_path:
-            print("You have chosen to output rsync commands to a file but have given an empty string for its name")
-        else:
-            fct = 1
-            while os.path.exists(args.out_path):
-                resp = input("The rsync file {} already exists. Do you want to write over it (y/n/q)? ".format(args.out_path))
-                if resp == 'y':
-                    os.remove(args.out_path)
-                elif resp == 'n':
-                    pts = args.out_path.split('.')
-                    lstptnm = len(pts) - 2
-                    oldpt = '_{}'.format(fct)
-                    if pts[lstptnm].endswith(oldpt):
-                        fct += 1
-                        newpt = '_{}'.format(fct)
-                        pts[lstptnm] = pts[lstptnm].replace(oldpt, newpt)
-                    else:
-                        pts[lstptnm] += '_{}'.format(fct)
-                    args.out_path = '.'.join(pts)
-                else:
-                    print("Quiting conversions")
-                    exit(0)
+        if args.out_path:
+            if os.path.exists(args.out_path):
+                print("The outpath you have chosen, {}, already exists. Rsync commands will be appende to it")
+            # fct = 1
+            # while os.path.exists(args.out_path):
+            #     resp = input("The rsync file {} already exists. Do you want to write over it (y/n/q)? ".format(args.out_path))
+            #     if resp == 'y':
+            #         os.remove(args.out_path)
+            #     elif resp == 'n':
+            #         pts = args.out_path.split('.')
+            #         lstptnm = len(pts) - 2
+            #         oldpt = '_{}'.format(fct)
+            #         if pts[lstptnm].endswith(oldpt):
+            #             fct += 1
+            #             newpt = '_{}'.format(fct)
+            #             pts[lstptnm] = pts[lstptnm].replace(oldpt, newpt)
+            #         else:
+            #             pts[lstptnm] += '_{}'.format(fct)
+            #         args.out_path = '.'.join(pts)
+            #     else:
+            #         print("Quiting conversions")
+            #         exit(0)
 
-    if not args.logfile:
+    outpath = args.out_path
+    if not outpath:
+        outpath = '../out/mms-import-{}.sh'.format(args.id)
+
+    mylog = args.logfile
+    if not mylog:
         tm = int(time.time())
-        args.logfile = 'logs/mmsimport-{}-{}.log'.format(args.id, tm)
-
+        mylog = '../logs/mms-import-{}-{}.log'.format(args.id, tm)
+        print("Log file is at: {}".format(mylog))
     if args.type == 'MMS':
         importer = mms.MMSImporter(
             id=args.id,
             cookie=cookie,
             rsync=args.rsync,
-            out_path=args.out_path,
+            out_path=outpath,
             photographer=args.photographer,
             collection=args.collection,
             dest=args.dest,
             source=args.source,
             home=args.home,
-            logfile=args.logfile,
+            logfile=mylog,
             verbose=args.verbose
         )
         importer.run()
-        os.chmod(args.out_path, 0o774)
 
+        if os.path.exists(outpath):
+            os.chmod(outpath, 0o774)
+            print("Out rsync commands are at: {}".format(outpath))
 
     elif args.type == 'Other':
         print("There are no 'other' types of importation at this point")
