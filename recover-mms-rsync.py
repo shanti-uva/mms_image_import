@@ -42,17 +42,28 @@ def distribute(self, mydest='test', verbose=False):
     elif verbose:
         print("File distributed on {}: {}".format(mydest, res.json()))
 
+def get_all_ids(idparam):
+    idlist = []
+    for idstr in idparam:
+        idstr = idstr.replace(' ', '').replace(',', '')
+        idpts = idstr.split('-')
+        if len(idpts) == 1:
+            idlist.append(int(idpts[0]))
+        else:
+            idlist += list(range(int(idpts[0]), int(idpts[1]) + 1))
+    return idlist
+
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Recover MMS rsync commands for a Mandala Images site',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('ids', type=str, nargs='+',
+                        help='The range of IDs or single ID to create the commands for')
     parser.add_argument('-dm', '--domain', default='images.shanti.virginia.edu',
                         help='What images domain')
     parser.add_argument('-ds', '--dest', choices=['test', 'prod'], default='prod',
                         help='Destination or the IIIF Server to which to copy the mms image')
-    parser.add_argument('-i', '--ids', required=True,
-                        help='The range of IDs or single ID to create the commands for')
     parser.add_argument('-a', '--auto', default=False,
                         help='Whether to automatically perform rsyncs')
     parser.add_argument('-o', '--outdir', default='../out',
@@ -61,12 +72,8 @@ if __name__ == '__main__':
 
     api_url = 'https://{}/api/imginfo/mmsid/'.format(args.domain)
     dest = args.dest
-    mmsids = args.ids.split('-')
-    mmsstr = int(mmsids[0])
-    if len(mmsids) == 1:
-        mmsend = mmsstr + 1
-    else:
-        mmsend = int(mmsids[1]) + 1
+    midlist = get_all_ids(args.ids)
+
     auto = args.auto
     ts = int(time.time())
     rpst = ''
@@ -76,8 +83,8 @@ if __name__ == '__main__':
     outurl = '{}/mms-rsync-{}-{}-{}-{}.sh'.format(
         args.outdir,
         domabbr,
-        mmsstr,
-        (mmsend - 1),
+        midlist[0],
+        midlist[-1],
         ts)
 
     if os.path.exists(outurl):
@@ -86,11 +93,11 @@ if __name__ == '__main__':
             print("Exiting script!")
             exit(0)
 
-    print("\nCreating commands for mms ids: {0} to {1}".format(mmsstr, mmsend - 1))
+    print("\nCreating commands for mms ids: {0} to {1}".format(midlist[0], midlist[-1]))
 
     badids = []
 
-    for mmsid in range(mmsstr, mmsend):  # range(38049, 38536):
+    for mmsid in midlist:
         # print("\rDoing: {0}        ".format(mmsid),)
         cmd = build_rsync(api_url, mmsid, dest)
 

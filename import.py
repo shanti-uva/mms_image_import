@@ -22,8 +22,10 @@ parser.add_argument('-d', '--dest', choices=['test', 'prod'], default='prod',
                     help='The IIIF host defaults to "prod"')
 parser.add_argument('-src', '--source', choices=['dev', 'stage', 'prod'], default='prod',
                     help='The MMS source for metadata')
-parser.add_argument('-rs', '--rsync', choices=['auto', 'file'], default='file',
+parser.add_argument('-rs', '--rsync', choices=['auto', 'file', 'none'], default='file',
                     help='Whether or not to rsync the image file automatically or produce a bash script to do so')
+parser.add_argument('-rsf', '--rsyncforce',
+                    help='Write rsync commands for all ids even if already imported', action="store_true")
 parser.add_argument('-o', '--out_path',
                     help='Path for the output file if sync is false')
 parser.add_argument('-p', '--photographer', default='Unknown',
@@ -91,6 +93,7 @@ if __name__ == '__main__':
             id=args.id,
             cookie=cookie,
             rsync=args.rsync,
+            force_rs=args.rsyncforce,
             out_path=outpath,
             photographer=args.photographer,
             collection=args.collection,

@@ -2,7 +2,7 @@ from .base import Importer
 import requests
 from subprocess import call
 import time
-from os.path import exists
+import os.path
 
 
 class MMSImporter(Importer):
@@ -25,6 +25,7 @@ class MMSImporter(Importer):
             **kwargs
         )
         self.rsync = kwargs.get('rsync')
+        self.force_rs = kwargs.get('force_rs')
 
     def _import_metadata(self):
         import_path = '/admin/shanti_images/import/json/'
@@ -66,22 +67,26 @@ class MMSImporter(Importer):
             # If everything went OK (200)
             self.res = res.json()
 
-            if self.res['status'] == '200':
-                self._log('info', '200 status returned from POST for ID {}. Payload: {}.'.format(
-                    self.id,
-                    self.res
-                ))
-                return True
-            else:
-                self._log('info', 'Response from Server with Non-200 Status for ID {}: {} ({})'.format(
-                    self.id,
-                    self.res['message'],
-                    self.res['status']
-                ))
-                if self.res['status'] == '401':
-                    raise Exception('Authorization required for posting to server. Check your cookie!')
+            if self.res and 'status' in self.res.keys():
+                if self.res['status'] == '200':
+                    self._log('info', '200 status returned from POST for ID {}. Payload: {}.'.format(
+                        self.id,
+                        self.res
+                    ))
+                    return True
                 else:
-                    return False
+                    self._log('info', 'Response from Server with Non-200 Status for ID {}: {} ({})'.format(
+                        self.id,
+                        self.res['message'],
+                        self.res['status']
+                    ))
+                    if self.res['status'] == '401':
+                        raise Exception('Authorization required for posting to server. Check your cookie!')
+                    else:
+                        return False
+            else:
+                self._log('warn', "No response from server for ID {}".format(self.id))
+                return False
 
         # res.json() looks like this:
         # {
@@ -159,37 +164,41 @@ class MMSImporter(Importer):
         skipct = 0
         probs = []
         # If a list of IDs are given
-        for id in id_list:
-            self.id = str(id)
-            try:
-                if self._already_imported():
-                    print("Id {} is already imported.".format(self.id))
-                    skipct += 1
-                else:
-                    print("Importing metadata for {} into {}".format(self.id, self.base))
-                    success = self._import_metadata()
-                    # rsync_cmds.append(self._get_rsync())
-                    if success:
-                        # data = self.res
-                        # cmd = self._get_rsync(data['i3fid'], data['mmsid'])
-                        # self._exec_cmds(cmd, be_verbose)
-                        impct += 1
+        try:
+            for id in id_list:
+                self.id = str(id)
+                try:
+                    if self._already_imported():
+                        print("Id {} is already imported.".format(self.id))
+                        skipct += 1
+                        if self.force_rs:
+                            rsync_cmds.append(self.build_rsync(self.id))
                     else:
-                        probs.append(str(id))
+                        print("Importing metadata for {} into {}".format(self.id, self.base))
+                        success = self._import_metadata()
+                        if success:
+                            impct += 1
+                            rsync_cmds.append(self.build_rsync(self.id))
+                        else:
+                            probs.append(self.id)
 
-            except requests.exceptions.RequestException as e:
-                print("Unable to connect to MMS server for {}: {}".format(self.id, e))
-                probs.append(str(id))
+                except requests.exceptions.RequestException as e:
+                    print("Unable to connect to MMS server for {}: {}".format(self.id, e))
+                    probs.append(str(id))
 
-           # except Exception as e:
-           #      print("***********  Exception: {} ***********".format(e))
-           #      exit()
+        finally:
+            # Only writes Rsync commands for records imported.
+            # To recreate missed rsync commands, use the recover-mms-rsync.py script
+            if self.rsync == 'file' and len(rsync_cmds) > 0:
+                print("Creating Rsync commands ....")
+                if os.path.exists(self.out_path):
+                    answer = input("The outfile {} already exists. Write over it? ".format(self.out_path))
+                    if answer != 'y':
+                        return
 
-        # for rscmd in rsync_cmds:
-        #    self._exec_cmds(rscmd, be_verbose)
-
-        # if self.rsync == 'auto':
-        #     self._distribute(be_verbose)
+                with open(self.out_path, 'w') as outf:
+                    for rcmd in rsync_cmds:
+                        outf.write("{}".format(rcmd))
 
         endtm = time.time()
         timedelta = endtm - sttm
@@ -200,16 +209,5 @@ class MMSImporter(Importer):
         m, s = divmod(timedelta, 60)
         h, m = divmod(m, 60)
         print("Time elapsed: %d hrs %02d mins %02d secs" % (h, m, s))
-
-        print("Creating Rsync commands ....")
-        if exists(self.out_path):
-            answer = input("The outfile {} already exists. Write over it? ".format(self.out_path))
-            if answer != 'y':
-                return
-
-        with open(self.out_path, 'w') as outf:
-            for mid in id_list:
-                outf.write("{}".format(self.build_rsync(mid)))
-
 
 

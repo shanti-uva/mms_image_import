@@ -1,9 +1,8 @@
 import argparse
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-import json
 import time
-import os
+import datetime
 
 debug = False
 
@@ -42,13 +41,15 @@ def parse_id_string(idstr):
 
 
 def do_request(path):
-    res = requests.get(path, verify=False)
-    if res.status_code == requests.codes.ok:
-        try:
-            res_json = res.json()
-            return res_json
-        except Exception as e:
-            pass
+    try:
+        res = requests.get(path, verify=False)
+        if res.status_code == requests.codes.ok:
+                res_json = res.json()
+                return res_json
+
+    except Exception as e:
+        pass
+
     return False
 
 
@@ -72,78 +73,115 @@ def check_id(myiid):
     return 3
 
 
+def mms_check(mmsid):
+    mmsurl = 'http://mms.thlib.org/media_objects/{}.json'.format(mmsid)
+    # print(mmsurl)
+    mmsres = do_request(mmsurl)
+    # print(type(mmsres))
+    if not mmsres or not isinstance(mmsres, dict) or ('status' in mmsres and mmsres['status'] == '404'):
+        return "404"
+    else:
+        # print("here")
+        kys = list(mmsres.keys())
+        return kys[0]
+
+
+def concat_list(alist):
+    newlist = []
+    st = False
+    last = False
+    try:
+        for item in alist:
+            item = int(item)
+            if not st:
+                st = item
+                last = item
+            elif item == last + 1:
+                last = item
+            else:
+                if last == st:
+                    newlist.append(str(st))
+                elif last == st + 1:
+                    newlist.append(str(st))
+                    newlist.append(str(last))
+                else:
+                    rngstr = "{}-{}".format(st, last)
+                    newlist.append(rngstr)
+                st = item
+                last = item
+
+    except ValueError as ve:
+        pass
+
+    return newlist
+
+def get_current_timestamp():
+    ts = time.time()
+    timestamp = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+    return timestamp
+
+
+def do_checks(allids):
+    '''
+    Checks the list of mms ids to see if they are imported. First, checks if it's an image in mms
+    Then if it is, it checks whether its been imported and whether the image has been uploaded
+    :param allids:
+    :return:
+    '''
+    if len(ids) > 3:
+        idstr = '_'.join(ids[0:3])
+    else:
+        idstr = '_'.join(ids)
+
+    outfile = '../checks/imgcheck_' + args.type + '_' + idstr + '.csv' if not args.output else args.output
+    print("Outfile location: {}".format(outfile))
+    with open(outfile, 'w') as outf:
+        outf.write('"Mmsid","Type","Imported","Uploaded","Modified","Created"' + "\n")
+        cts = get_current_timestamp()
+        for iid in allids:
+            print("\rDoing mms id {} ....      ".format(iid), end=" ")
+            iid = str(iid)
+            mmstype = mms_check(iid)
+            imp = 0
+            upl = 0
+            if mmstype == 'picture':
+                status = check_id(iid)
+                if status == 1:
+                    imp = 1
+                    upl = 1
+
+                elif status == 2:
+                    imp = 1
+                    upl = 0
+
+            outf.write('{},"{}",{},{},"{}","{}"'.format(iid, mmstype, imp, upl, cts, cts) + "\n")
+
+            # except Exception as e:
+            #    print("\rThere was an exception during {}:{}".format(iid, e.),)
+
+
+
 if __name__ == '__main__':
 
     if args.id:
-        try:
-            ids = args.id
-            allids = []
-            done = []
-            notup = []
-            notimp = []
-            for idstr in ids:
-                allids += parse_id_string(idstr)
+        sttm = time.time()
+        ids = args.id
+        idlist = []
+        for idstr in ids:
+            idlist += parse_id_string(idstr)
 
-            if debug:
-                print("id in: ", args.id)
-                print("The list is: ", allids)
+        if debug:
+            print("id in: ", args.id)
+            print("The list is: ", idlist)
 
-            sttm = time.time()
+        do_checks(idlist)
 
-            for iid in allids:
-                iid = str(iid)
-                status = check_id(iid)
-                if status == 1:
-                    print("\r{} {} has ALREADY been imported and uploaded                     ".format(args.type, iid), end=" ")
-                    done.append(iid)
-                elif status == 2:
-                    print("\r{} {} has been imported but NOT yet been uploaded              ".format(args.type, iid), end=" ")
-                    notup.append(iid)
-                else:
-                    print("\r{} {} has not been imported at all                         ".format(args.type, iid), end=" ")
-                    notimp.append(iid)
+        endtm = time.time()
+        timedelta = endtm - sttm
+        m, s = divmod(timedelta, 60)
+        h, m = divmod(m, 60)
+        print("Time elapsed: %d hrs %02d mins %02d secs" % (h, m, s))
+        print("The Checking is Done!")
 
-        finally:
-            ts = time.time()
-            idstr = ''
-            if len(ids) > 3:
-                idstr = '_'.join(ids[0:3])
-            else:
-                idstr='_'.join(ids)
-
-            outfile = '../checks/imgcheck_' + args.type + '_' + idstr + '.data' if not args.output else args.output
-
-            with open(outfile, 'w') as outf:
-                # Doing not uploaded files
-                outf.write("Not Uploaded:\n")
-                if len(notup) == 0:
-                    outf.write("None\n")
-                for itm in notup:
-                    outf.write("{}\n".format(itm))
-
-                # Doing not imported MMS Records
-                outf.write("\nNot Imported:\n")
-                if len(notimp) == 0:
-                    outf.write("None\n")
-                for itm in notimp:
-                    outf.write("{}\n".format(itm))
-
-                # Doing those which are completely done
-                outf.write("\nCompletely Done:\n")
-                if len(done) == 0:
-                    outf.write("None\n")
-                for itm in done:
-                    outf.write("{}\n".format(itm))
-
-            print("\n{} IDs have been completely done\n".format(len(done)))
-            print("{} IDs have imported but the image has not been uploaded\n".format(len(notup)))
-            print("{} IDs have have not been imported\n".format(len(notimp)))
-            endtm = time.time()
-            timedelta = endtm - sttm
-            m, s = divmod(timedelta, 60)
-            h, m = divmod(m, 60)
-            print("Time elapsed: %d hrs %02d mins %02d secs" % (h, m, s))
-
-            print("Now I'm really done!")
-
-
+    else:
+        print("No ids given. Nothing to check! Bye!")
