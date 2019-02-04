@@ -12,7 +12,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 def build_rsync(info_url, mid, mydest):
     mycmd = False
-    strmid = str(mid)
+    strmid = str(mid).zfill(5)
     url = info_url + strmid
     print("Calling: {}".format(url))
     try:
@@ -25,10 +25,11 @@ def build_rsync(info_url, mid, mydest):
             mysource = "~/Shares/iiif-live/shanti/prod/{}/{}.jp2".format(folder, imgnm)
             mydest = "~/Shares/iiif-live/shanti/{}/{}.jp2".format(mydest, newimgnm)
             mycmd = "rsync -ah --progress {} {}\n".format(mysource, mydest)
-            return mycmd
+
     except requests.exceptions.RequestException as e:
         print("Connection could not be made for {}".format(url))
-        return False
+
+    return mycmd
 
 
 def distribute(self, mydest='test', verbose=False):

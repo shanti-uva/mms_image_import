@@ -113,7 +113,7 @@ class MMSImporter(Importer):
     def build_rsync(mid):
         info_url = 'https://images.shanti.virginia.edu/api/imginfo/mmsid/'
         mydest = 'prod'
-        strmid = str(mid)
+        strmid = str(mid).zfill(5)
         url = info_url + strmid
         # print("Calling: {}".format(url))
         try:

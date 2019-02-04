@@ -10,10 +10,10 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 parser = argparse.ArgumentParser(description='Import images from other apps',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('id', type=str, nargs='+',
+                    help='The id number of the record to import')
 parser.add_argument('-t', '--type', choices=['MMS', 'Other'], default='MMS',
                     help='What type of image is being imported')
-parser.add_argument('-i', '--id', required=True,
-                    help='The id number of the record to import')
 parser.add_argument('-c', '--cookie',
                     help='The Cookie header to pass to the Drupal server.')
 parser.add_argument('-hm', '--home', default='https://images.shanti.virginia.edu',
@@ -81,16 +81,22 @@ if __name__ == '__main__':
 
     outpath = args.out_path
     if not outpath:
-        outpath = '../out/mms-import-{}.sh'.format(args.id)
+        idstr = args.id if type(args.id) == str else "{}-{}".format(args.id[0], args.id[-1])
+        outpath = '../out/mms-import-{}.sh'.format(idstr)
 
     mylog = args.logfile
     if not mylog:
         tm = int(time.time())
-        mylog = '../logs/mms-import-{}-{}.log'.format(args.id, tm)
+        if type(args.id) == str:
+            pts = args.id.split('-')
+            idstr = "{}-{}".format(pts[0], pts[-1])
+        else:
+            idstr = "{}-{}".format(args.id[0], args.id[-1])
+        mylog = '../logs/mms-import-{}-{}.log'.format(idstr, tm)
         print("Log file is at: {}".format(mylog))
     if args.type == 'MMS':
         importer = mms.MMSImporter(
-            id=args.id,
+            id=','.join(args.id),
             cookie=cookie,
             rsync=args.rsync,
             force_rs=args.rsyncforce,
